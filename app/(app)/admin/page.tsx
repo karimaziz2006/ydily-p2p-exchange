@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 type Coin = "BTC" | "ETH" | "LTC" | "SOL" | "USDT";
 type Side = "buy" | "sell";
 
-type TxStatus = "awaiting_release" | "accepted" | "denied";
+type TxStatus = "pending" | "accepted" | "denied";
+
 
 
 type Tx = {
@@ -28,6 +29,22 @@ type Tx = {
 type Wallets = Record<string, Partial<Record<Coin, number>>>;
 
 const WALLETS_KEY = "wallets_v1";
+const REQUESTS_KEY = "requests_v1";
+
+function loadRequests(): Tx[] {
+  try {
+    const raw = localStorage.getItem(REQUESTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRequests(items: Tx[]) {
+  localStorage.setItem(REQUESTS_KEY, JSON.stringify(items));
+}
+
 
 function fmt(n: number, max = 6) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: max }).format(n);
@@ -53,29 +70,40 @@ export default function AdminPage() {
   const [items, setItems] = useState<Tx[]>([]);
 
   useEffect(() => {
-    fetch("/api/transactions")
-      .then((r) => r.json())
-      .then((data) => setItems(data.txs || []))
-      .catch(() => setItems([]));
+    const sync = () => setItems(loadRequests());
+    sync();
+
+    // keep admin updated if something changes while you’re on the page
+    window.addEventListener("storage", sync);
+    const timer = window.setInterval(sync, 1000);
+
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.clearInterval(timer);
+    };
   }, []);
 
 
-  const pendingCount = useMemo(() => items.filter((x) => x.status === "awaiting_release").length, [items]);
+
+  const pendingCount = useMemo(() => items.filter((x) => x.status === "pending").length, [items]);
+
 
   function setStatus(id: string, status: Tx["status"]) {
     setItems((prev) => {
       const next = prev.map((t) => (t.id === id ? { ...t, status } : t));
+      saveRequests(next);
       return next;
     });
   }
+
 
   function accept(id: string) {
     const tx = items.find((t) => t.id === id);
     if (!tx) return;
 
     // 1) mark accepted
-    const nextRequests = items.map((t) => (t.id === id ? { ...t, status: "accepted" as TxStatus } : t));
-    setItems(nextRequests);
+    setStatus(id, "accepted");
+
 
     // 2) update wallet
     const wallets = loadWallets();
@@ -147,7 +175,8 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {t.status === "awaiting_release" && (
+                {t.status === "pending" && (
+
                   <div className="mt-3 flex gap-2">
                     <button
                       onClick={() => deny(t.id)}
