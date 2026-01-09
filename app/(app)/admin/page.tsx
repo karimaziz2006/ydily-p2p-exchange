@@ -135,7 +135,7 @@ export default function AdminPage() {
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="flex items-center justify-between">
           <div className="text-lg font-semibold">Requests</div>
-          <div className="text-xs text-white/60">{pendingCount} awaiting_release</div>
+          <div className="text-xs text-white/60">{pendingCount} pending</div>
         </div>
 
         {items.length === 0 ? (
@@ -163,7 +163,7 @@ export default function AdminPage() {
                   <div className="text-right">
                     <div
                       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${
-                        t.status === "awaiting_release"
+                        t.status === "pending"
                           ? "border-white/10 bg-white/5 text-white/70"
                           : t.status === "accepted"
                             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
